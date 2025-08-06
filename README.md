@@ -20,8 +20,10 @@ CompoSAT does not use a standard build system. Instead, it was meant to be built
 
 **Step 1:** Clone both of these repositories:
 
-- https://github.com/sorawee/CompoSAT
-- https://github.com/sorawee/AmalgamKodkod
+- https://github.com/tnelson/CompoSAT
+- https://github.com/tnelson/AmalgamKodkod
+
+These are updated forks of the original.
 
 **Step 2:** Add both to your workspace in Eclipse. You should see both projects at the root; this is important since `CompoSAT` refers to the `AmalgamKodkod` repository. Make sure that Eclipse uses an older version of Java as described above; Java 7 is suggested. 
 
@@ -77,4 +79,4 @@ make -j8
 
 The `.dylib` files should be placed in the `extra/x86-mac` and `bin/x86-mac` folders.
 
-The `com.microsoft.z3.jar` file should be placed in the `lib` folder.  
+The `com.microsoft.z3.jar` file should be placed in the `lib` folder of both `AmalgamKodkod` and `CompoSAT`.  
