@@ -4,9 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 
 import edu.mit.csail.sdg.alloy4.A4Reporter;
 import edu.mit.csail.sdg.alloy4.Err;
@@ -31,7 +33,8 @@ public class BatchCLI extends CLI {
         String outDir = params.getOrDefault("out", Util.asList("composat-output")).get(0);
         int modelLimit = Integer.parseInt(params.getOrDefault("model-limit", Util.asList("-1")).get(0));
         int timeLimit = Integer.parseInt(params.getOrDefault("time-limit", Util.asList("-1")).get(0));
-        int commandNumber = Integer.parseInt(params.getOrDefault("command", Util.asList("0")).get(0));
+        // -1 means "run all commands" (the default)
+        int commandNumber = Integer.parseInt(params.getOrDefault("command", Util.asList("-1")).get(0));
         int symmetry = Integer.parseInt(params.getOrDefault("symmetry", Util.asList("0")).get(0));
 
         // Collect .als files
@@ -78,7 +81,6 @@ public class BatchCLI extends CLI {
                     baseName = baseName.substring(0, baseName.length() - 4);
                 }
                 File fileOutDir = new File(outDir, baseName);
-                fileOutDir.mkdirs();
 
                 A4Reporter rep = new A4Reporter() {
                     @Override public void warning(ErrorWarning msg) {
@@ -90,8 +92,29 @@ public class BatchCLI extends CLI {
                 System.out.println("Parsing+Typechecking " + filename + "...");
                 final Module root = CompUtil.parseEverything_fromFile(rep, null, filename);
 
-                final Command command = root.getAllCommands().get(commandNumber);
-                System.out.println("Command: " + command);
+                List<Command> allCommands = root.getAllCommands();
+                if (allCommands.isEmpty()) {
+                    System.err.println("Skipping " + filename + ": no commands found");
+                    errorCount++;
+                    continue;
+                }
+
+                // Determine which commands to run
+                List<Integer> commandIndices = new ArrayList<>();
+                if (commandNumber >= 0) {
+                    if (commandNumber >= allCommands.size()) {
+                        System.err.println("Skipping " + filename + ": --command "
+                                + commandNumber + " but file has only "
+                                + allCommands.size() + " command(s)");
+                        errorCount++;
+                        continue;
+                    }
+                    commandIndices.add(commandNumber);
+                } else {
+                    for (int i = 0; i < allCommands.size(); i++) {
+                        commandIndices.add(i);
+                    }
+                }
 
                 final A4Options options = new A4Options();
                 options.solver = A4Options.SatSolver.MiniSatProverJNI;
@@ -100,20 +123,48 @@ public class BatchCLI extends CLI {
                 options.skolemDepth = -1;
                 options.symmetry = symmetry;
 
-                int instanceCount = 0;
+                boolean multipleCommands = commandIndices.size() > 1;
 
-                if ("coverage".equals(mode)) {
-                    instanceCount = runCoverageMode(root, command, options, rep,
-                            fileOutDir, modelLimit, timeLimit);
-                } else if ("plain".equals(mode)) {
-                    instanceCount = runPlainMode(root, command, options, rep,
-                            fileOutDir, modelLimit);
-                } else {
-                    System.err.println("Unknown mode: " + mode + " (expected 'coverage' or 'plain')");
+                // Pre-compute directory names, appending index to disambiguate duplicates
+                Set<String> usedDirNames = new HashSet<>();
+                List<String> cmdDirNames = new ArrayList<>();
+                for (int cmdIdx : commandIndices) {
+                    String name = commandDirName(cmdIdx, allCommands.get(cmdIdx));
+                    if (!usedDirNames.add(name)) {
+                        name = name + "_" + cmdIdx;
+                    }
+                    cmdDirNames.add(name);
                 }
 
-                totalInstances += instanceCount;
-                System.out.println("Wrote " + instanceCount + " instance(s) to " + fileOutDir.getPath());
+                for (int ci = 0; ci < commandIndices.size(); ci++) {
+                    int cmdIdx = commandIndices.get(ci);
+                    final Command command = allCommands.get(cmdIdx);
+                    System.out.println("Command [" + cmdIdx + "]: " + command);
+
+                    // Build output dir: <out>/<basename>/<commandDirName>/
+                    File cmdOutDir;
+                    if (multipleCommands) {
+                        cmdOutDir = new File(fileOutDir, cmdDirNames.get(ci));
+                    } else {
+                        cmdOutDir = fileOutDir;
+                    }
+                    cmdOutDir.mkdirs();
+
+                    int instanceCount = 0;
+
+                    if ("coverage".equals(mode)) {
+                        instanceCount = runCoverageMode(root, command, options, rep,
+                                cmdOutDir, modelLimit, timeLimit);
+                    } else if ("plain".equals(mode)) {
+                        instanceCount = runPlainMode(root, command, options, rep,
+                                cmdOutDir, modelLimit);
+                    } else {
+                        System.err.println("Unknown mode: " + mode + " (expected 'coverage' or 'plain')");
+                    }
+
+                    totalInstances += instanceCount;
+                    System.out.println("Wrote " + instanceCount + " instance(s) to " + cmdOutDir.getPath());
+                }
 
             } catch (Exception e) {
                 errorCount++;
@@ -128,6 +179,19 @@ public class BatchCLI extends CLI {
         if (errorCount > 0) {
             System.out.println("Errors: " + errorCount);
         }
+    }
+
+    /** Build a filesystem-safe directory name for a command, e.g. "run_ownGrandpa" or "check_NoSelfGrandpa".
+     *  Falls back to "cmd0", "cmd1", etc. if the label is empty. */
+    private static String commandDirName(int index, Command command) {
+        String prefix = command.check ? "check" : "run";
+        String label = command.label;
+        if (label != null && !label.isEmpty()) {
+            // Replace characters that are unsafe in directory names
+            label = label.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+            return prefix + "_" + label;
+        }
+        return "cmd" + index;
     }
 
     private static int runCoverageMode(Module root, Command command, A4Options options,

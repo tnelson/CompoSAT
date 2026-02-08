@@ -1,0 +1,126 @@
+# CompoSAT Batch CLI
+
+Headless command-line interface for running CompoSAT across multiple `.als` files
+and saving results as Alloy XML. 
+
+Tim Nelson (`Tim_Nelson@brown.edu`) and Claude Code (Opus 4.6).
+
+## Usage
+
+```bash
+# GUI (unchanged)
+java -jar dist/OldCompSAT.jar
+
+# Batch mode: process specific files
+java -jar dist/OldCompSAT.jar batch --files a.als b.als --out results/
+
+# Batch mode: scan a directory
+java -jar dist/OldCompSAT.jar batch --dir models/ --mode plain --model-limit 10
+```
+
+## Flags
+
+| Flag             | Default           | Description                                      |
+|------------------|-------------------|--------------------------------------------------|
+| `--files`        | *(required, or use --dir)* | `.als` files to process                |
+| `--dir`          | none              | Directories to scan for `.als` files             |
+| `--mode`         | `coverage`        | `coverage` (CompoSAT ensemble) or `plain` (standard enumeration) |
+| `--out`          | `composat-output` | Output directory                                 |
+| `--model-limit`  | `-1` (unlimited)  | Max instances per file                           |
+| `--time-limit`   | `-1` (unlimited)  | Max time in seconds per file (coverage mode)     |
+| `--command`      | all               | Command index to execute (`-1` or omit for all)  |
+| `--symmetry`     | `0`               | Symmetry breaking level                          |
+
+## Output Structure
+
+When a file has multiple commands (the default), results are nested by command name:
+
+```
+<out>/
+  model1/
+    run_SomePred/
+      instance_1.xml
+      instance_2.xml
+    check_SomeAssert/
+      instance_1.xml
+  model2/
+    run_AnotherPred/
+      instance_1.xml
+```
+
+When `--command N` selects a single command, the command subdirectory is omitted:
+
+```
+<out>/
+  model1/
+    instance_1.xml
+    instance_2.xml
+```
+
+## Modes
+
+### Coverage mode (`--mode coverage`)
+
+Uses the CompoSAT coverage engine to generate a minimal ensemble of instances
+that maximizes provenance coverage. Each instance in the ensemble is written as
+a separate XML file.
+
+### Plain mode (`--mode plain`)
+
+Standard Alloy enumeration via `A4Solution.next()`. Generates successive
+distinct instances up to `--model-limit`.
+
+## Examples
+
+```bash
+# Coverage mode with defaults (all instances, no time limit)
+java -jar dist/OldCompSAT.jar batch \
+  --files models/grandpa.als \
+  --out output/
+
+# Plain mode, 5 instances, specific command
+java -jar dist/OldCompSAT.jar batch \
+  --files models/grandpa.als \
+  --mode plain \
+  --model-limit 5 \
+  --command 0 \
+  --out output/
+
+# Process all .als files in a directory
+java -jar dist/OldCompSAT.jar batch \
+  --dir models/toys/ \
+  --mode plain \
+  --model-limit 3 \
+  --out output/
+
+# Multiple files and directories
+java -jar dist/OldCompSAT.jar batch \
+  --files a.als b.als \
+  --dir extra-models/ \
+  --out output/
+```
+
+## Error Handling
+
+Single-file failures do not abort the batch. Errors are reported to stderr,
+and a summary is printed at the end showing the count of processed files,
+total instances generated, and errors encountered.
+
+## Building
+
+```bash
+./build-jar.sh
+```
+
+The build script compiles both OldCompSAT and AmalgamKodkod sources, bundles
+dependencies and native libraries, and produces `dist/OldCompSAT.jar`.
+
+## Implementation Notes
+
+- Entry point: `JarLauncher` (extracts native libs, sets up `java.library.path`)
+  dispatches to `SimpleGUI.main()`, which checks for `batch` arg and dispatches
+  to `BatchCLI`.
+- `java.awt.headless=true` is set early in `JarLauncher` for batch mode, before
+  any AWT classes are loaded.
+- Solver options match existing CLIs: `MiniSatProverJNI`, `noOverflow=true`,
+  `inferPartialInstance=false`, `skolemDepth=-1`.

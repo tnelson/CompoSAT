@@ -49,7 +49,41 @@ The time limit for the internal enumeration is 20 seconds. This dictates the ini
 
 To see CompoSAT logs, set the Alloy's verbosity level to "debug"
 
-## Contact 
+## Building and Running the JAR
+
+As an alternative to Eclipse, you can build a standalone runnable JAR from the command line.
+
+### Quick Start
+
+```bash
+./build-jar.sh                             # build
+java -jar dist/OldCompSAT.jar              # GUI mode
+java -jar dist/OldCompSAT.jar batch ...    # batch/headless mode (see BATCH-CLI.md)
+```
+
+**Requirements:** Java 8 JDK (`javac` and `jar` on PATH). The build script compiles both OldCompSAT and AmalgamKodkod sources, so `../AmalgamKodkod/` must be present as a sibling directory.
+
+### What the JAR Bundles
+
+- All compiled classes from OldCompSAT and AmalgamKodkod
+- Dependency JARs: sat4j, trove, gs-core, Z3 Java bindings, apple-osx-ui
+- Native solver libraries for macOS (`extra/x86-mac/`), Linux (`extra/amd64-linux/`), and Windows (`extra/amd64-windows/`)
+- Resources from `extra/` (help docs, icons, images, example models)
+
+### How It Works
+
+`JarLauncher` is the JAR entry point. It detects the OS/architecture, extracts platform-specific native libraries to a temp directory, configures `java.library.path`, and then delegates to `SimpleGUI.main()`. If the first argument is `batch`, `SimpleGUI` dispatches to `BatchCLI` for headless operation (see [BATCH-CLI.md](BATCH-CLI.md)).
+
+### Clean Rebuild
+
+```bash
+rm -rf build dist
+./build-jar.sh
+```
+
+Build artifacts (`build/`, `dist/`) are gitignored.
+
+## Contact
 
 Contact `tim_nelson@brown.edu` with questions.
 
