@@ -1899,6 +1899,10 @@ public final class SimpleGUI implements ComponentListener, Listener {
 
     /** Main method that launches the program; this method might be called by an arbitrary thread. */
     public static void main(final String[] args) throws Exception {
+        if (args.length > 0 && "batch".equals(args[0])) {
+            BatchCLI.main(args);
+            return;
+        }
         SwingUtilities.invokeLater(new Runnable() {
             public void run() { new SimpleGUI(args); }
         });
