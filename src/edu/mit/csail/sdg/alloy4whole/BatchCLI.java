@@ -35,7 +35,7 @@ public class BatchCLI extends CLI {
         int timeLimit = Integer.parseInt(params.getOrDefault("time-limit", Util.asList("-1")).get(0));
         // -1 means "run all commands" (the default)
         int commandNumber = Integer.parseInt(params.getOrDefault("command", Util.asList("-1")).get(0));
-        int symmetry = Integer.parseInt(params.getOrDefault("symmetry", Util.asList("0")).get(0));
+        int symmetry = Integer.parseInt(params.getOrDefault("symmetry", Util.asList("20")).get(0));
 
         // Collect .als files
         List<String> alsFiles = new ArrayList<>();
@@ -199,7 +199,7 @@ public class BatchCLI extends CLI {
 
         CoverageOptions coptions = new CoverageOptions();
         coptions.modelLimit = modelLimit;
-        coptions.timeLimit = timeLimit;
+        coptions.timeLimit = timeLimit == -1 ? -1 : timeLimit * 1000L;
 
         Coverage coverageEngine = new Coverage(root, null, new TextLog(), null);
 

@@ -173,6 +173,11 @@ public class CoverageStruct {
             System.out.println(m.getBitvec());
         }
         
+        if (compactedModels.isEmpty()) {
+            ctx.close();
+            return new ArrayDeque<CoverageModel>();
+        }
+
         List<IntExpr> costs = new ArrayList<>(compactedModels.size());
         
         for (CoverageModel m : compactedModels) {

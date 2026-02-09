@@ -19,7 +19,7 @@ abstract public class Enumerator {
     }
     public A4Solution next() throws Err, IOException {
         Random r = new Random();
-        String filenameXML = "/tmp/amalgam-coverage" + r.nextInt();
+        String filenameXML = System.getProperty("java.io.tmpdir") + File.separator + "amalgam-coverage" + r.nextInt();
         ans.writeXML(filenameXML);
         A4Solution ret = A4SolutionReader.read(ans.getAllReachableSigs(), new XMLNode(new File(filenameXML)));
         (new File(filenameXML)).delete();
